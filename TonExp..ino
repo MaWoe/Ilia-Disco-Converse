@@ -88,6 +88,7 @@
 #define NOTE_D8  4699
 #define NOTE_DS8 4978
 #define REST 0
+// bei Rest kein Licht
 
 int tempo = 140;
 
@@ -121,6 +122,10 @@ int melody[] = {
 
 };
 
+#define LIGHT_MODE_START 0
+#define LIGHT_MODE_MID   1
+#define LIGHT_MODE_END   2
+
 // sizeof gives the number of bytes, each int value is composed of two bytes (16 bits)
 // there are two values per note (pitch and duration), so for each note there are four bytes
 int notes = sizeof(melody) / sizeof(melody[0]) / 2;
@@ -130,17 +135,83 @@ int wholenote = (60000 * 4) / tempo;
 
 int divider = 0, noteDuration = 0;
 
-volatile int lightMode = 0;
+volatile byte lightMode = 0;
+volatile int lastLightModeChange = 0;
+
+const byte interruptPin = 2;
+const byte lightModes = 3;
 
 void setup() {
-  
+  Serial.begin(9600);
+  pinMode(interruptPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(interruptPin), changeLightMode, FALLING);
 }
 
+void changeLightMode() {
+  const int currentMillis = millis();
+  const int timeSinceLastChange = currentMillis - lastLightModeChange;
+
+  if (timeSinceLastChange > 500) {
+    lastLightModeChange = currentMillis;
+    lightMode++;
+    lightMode %= lightModes;
+  }
+}
+
+int doLightMode(int currentNote, int noteDuration, int step) {
+  Serial.print("Do light mode: ");
+  Serial.println(lightMode);
+  if (lightMode == 0) {
+    return lightMode0(currentNote, noteDuration, step);
+  } else if (lightMode == 1) {
+    return lightMode1(currentNote, noteDuration, step);
+  } else if (lightMode == 2) {
+    return lightMode2(currentNote, noteDuration, step);
+  }
+}
+
+int lightMode0(int currentNote, int noteDuration, int step) {
+  if (step == LIGHT_MODE_START && currentNote != REST) {
+    analogWrite(10, 255);
+    analogWrite(11, 255);
+    analogWrite(6, 255);
+  } else if (step == LIGHT_MODE_MID) {
+    analogWrite(10, 0);
+    analogWrite(11, 0);
+    analogWrite(6, 0);
+  }
+
+  return 50;
+}
+
+int lightMode1(int currentNote, int noteDuration, int step) {
+  if (step == LIGHT_MODE_START && currentNote != REST) {
+    analogWrite(10, 255);
+    analogWrite(11, 255);
+    analogWrite(6, 255);
+  } else if (step == LIGHT_MODE_MID) {
+    analogWrite(10, 0);
+    analogWrite(11, 0);
+    analogWrite(6, 0);
+  }
+
+  return 50;
+}
+
+int lightMode2(int currentNote, int noteDuration, int step) {
+  return 50;
+}
+
+
 void play() {
+
+  int currentNote;
+  int lightModeDelay;
+
   // iterate over the notes of the melody.
   // Remember, the array is twice the number of notes (notes + durations)
   for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
-
+    currentNote = melody[thisNote];
     // calculates the duration of each note
     divider = melody[thisNote + 1];
     if (divider > 0) {
@@ -152,24 +223,23 @@ void play() {
       noteDuration *= 1.5; // increases the duration in half for dotted notes
     }
 
-    // we only play the note for 90% of the duration, leaving 10% as a pause
-    tone(buzzer, melody[thisNote], noteDuration * 0.9);
-    analogWrite(10, 255);
-    analogWrite(11, 255);
-    analogWrite(6,255);
+    lightModeDelay = doLightMode(currentNote, noteDuration, LIGHT_MODE_START);
+    lightModeDelay = max(0, min(100, lightModeDelay));
 
-    // Wait for the specief duration before playing the next note.
-    delay(noteDuration * 0.7);
-    analogWrite(10, 0);
-    analogWrite(11, 0);
-    analogWrite(6,0);
-    delay(noteDuration * 0.3);
+    // we only play the note for 90% of the duration, leaving 10% as a pause
+    tone(buzzer, currentNote, noteDuration * 0.9);
+
+    delay(noteDuration * lightModeDelay / 100);
+
+    doLightMode(currentNote, noteDuration, LIGHT_MODE_MID);
+
+    delay(noteDuration * (100 - lightModeDelay) / 100);
+
+    doLightMode(currentNote, noteDuration, LIGHT_MODE_END);
 
     // stop the waveform generation before the next note.
     noTone(buzzer);
-
   }
-
 }
 
 void loop() {
