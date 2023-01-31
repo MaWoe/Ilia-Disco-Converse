@@ -136,7 +136,6 @@ void setup() {
   
 }
 
-//
 void play() {
   // iterate over the notes of the melody.
   // Remember, the array is twice the number of notes (notes + durations)
