@@ -121,10 +121,20 @@ int melody[] = {
   REST, 8, NOTE_FS5, 8, REST, 8, NOTE_FS5, 8, NOTE_E5, 8, NOTE_E5, 8, NOTE_FS5, 8, NOTE_E5, 8,
 
 };
-
+//LichtModi
 #define LIGHT_MODE_START 0
 #define LIGHT_MODE_MID   1
 #define LIGHT_MODE_END   2
+
+//LichtPins
+#define RECHTS_ROT       9
+#define RECHTS_BLAU      10
+#define RECHTS_GRUEN     11
+
+#define LINKS_ROT        5
+#define LINKS_BLAU       3
+#define LINKS_GRUEN      6
+
 
 // sizeof gives the number of bytes, each int value is composed of two bytes (16 bits)
 // there are two values per note (pitch and duration), so for each note there are four bytes
@@ -141,7 +151,20 @@ volatile int lastLightModeChange = 0;
 const byte interruptPin = 2;
 const byte lightModes = 3;
 
+#include <LiquidCrystal_I2C.h>
+#include <Wire.h>
+LiquidCrystal_I2C Lcd(0x27, 16, 2);
 void setup() {
+  pinMode(RECHTS_ROT, OUTPUT);
+  pinMode(RECHTS_BLAU, OUTPUT);
+  pinMode(RECHTS_GRUEN, OUTPUT);
+  pinMode(LINKS_ROT, OUTPUT);
+  pinMode(LINKS_BLAU, OUTPUT);
+  pinMode(LINKS_GRUEN, OUTPUT);
+  Lcd.init();
+  Lcd.backlight();
+  Lcd.setCursor(3, 0);
+  Lcd.print("Disco Converse");
   Serial.begin(9600);
   pinMode(interruptPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(interruptPin), changeLightMode, FALLING);
@@ -172,13 +195,11 @@ int doLightMode(int currentNote, int noteDuration, int step) {
 
 int lightMode0(int currentNote, int noteDuration, int step) {
   if (step == LIGHT_MODE_START && currentNote != REST) {
-    analogWrite(10, 255);
-    analogWrite(11, 255);
-    analogWrite(6, 255);
+    analogWrite(RECHTS_BLAU, 255);
+    analogWrite(LINKS_ROT, 255);
   } else if (step == LIGHT_MODE_MID) {
-    analogWrite(10, 0);
-    analogWrite(11, 0);
-    analogWrite(6, 0);
+    analogWrite(RECHTS_BLAU, 0);
+    analogWrite(LINKS_ROT, 0);
   }
 
   return 50;
@@ -220,7 +241,8 @@ void play() {
     } else if (divider < 0) {
       // dotted notes are represented with negative durations!!
       noteDuration = (wholenote) / abs(divider);
-      noteDuration *= 1.5; // increases the duration in half for dotted notes
+      noteDuration *= 1.5; // incre
+      //the duration in half for dotted notes
     }
 
     lightModeDelay = doLightMode(currentNote, noteDuration, LIGHT_MODE_START);
