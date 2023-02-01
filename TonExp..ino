@@ -122,18 +122,21 @@ int melody[] = {
 
 };
 //LichtModi
-#define LIGHT_MODE_START 0
-#define LIGHT_MODE_MID   1
-#define LIGHT_MODE_END   2
+#define LIGHT_MODE_START  0
+#define LIGHT_MODE_MID    1
+#define LIGHT_MODE_END    2
 
 //LichtPins
-#define RECHTS_ROT       9
+#define RECHTS_ROT        9
 #define RECHTS_BLAU      10
 #define RECHTS_GRUEN     11
 
-#define LINKS_ROT        5
-#define LINKS_BLAU       3
-#define LINKS_GRUEN      6
+#define LINKS_ROT         5
+#define LINKS_BLAU        3
+#define LINKS_GRUEN       6
+
+#define INTERRUPT_PIN      2
+#define ANZAHL_LICHT_EFFEKTE        3
 
 
 // sizeof gives the number of bytes, each int value is composed of two bytes (16 bits)
@@ -148,8 +151,7 @@ int divider = 0, noteDuration = 0;
 volatile byte lightMode = 0;
 volatile int lastLightModeChange = 0;
 
-const byte interruptPin = 2;
-const byte lightModes = 3;
+
 
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
@@ -166,10 +168,14 @@ void setup() {
   Lcd.setCursor(3, 0);
   Lcd.print("Disco Converse");
   Serial.begin(9600);
-  pinMode(interruptPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), changeLightMode, FALLING);
-}
+  pinMode(INTERRUPT_PIN, INPUT_PULLUP);
+  //Funktion(isr) wird mit intterupt verbunden, von + auf -
+  //Hauptprogramm wird bei Fall unterbrochen, verbundene Funktion aussgeführt
+  //Interrupt wirde benutzt, um ständiges Abfragen(polling) zu vermeiden
+  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), changeLightMode, FALLING);
 
+}
+//isr(kurz, um Hauptprogramm nicht aus Takt zu bringen):
 void changeLightMode() {
   const int currentMillis = millis();
   const int timeSinceLastChange = currentMillis - lastLightModeChange;
@@ -177,7 +183,9 @@ void changeLightMode() {
   if (timeSinceLastChange > 500) {
     lastLightModeChange = currentMillis;
     lightMode++;
-    lightMode %= lightModes;
+    if (lightMode >= ANZAHL_LICHT_EFFEKTE){
+      lightMode = 0;
+    }
   }
 }
 
