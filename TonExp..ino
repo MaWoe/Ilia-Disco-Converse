@@ -166,6 +166,9 @@ void setup() {
   pinMode(LINKS_BLAU, OUTPUT);
   pinMode(LINKS_GRUEN, OUTPUT);
   pinMode(INTERRUPT_PIN, INPUT_PULLUP);
+  //Funktion(isr) wird mit intterupt verbunden, von + auf -
+  //Hauptprogramm wird bei Fall unterbrochen, verbundene Funktion aussgeführt
+  //Interrupt wirde benutzt, um ständiges Abfragen(polling) zu vermeiden
   attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), changeLightMode, FALLING);
   delay(500);
   lightMode = 0;
@@ -174,9 +177,6 @@ void setup() {
   Lcd.backlight();
   Lcd.setCursor(3, 0);
   Lcd.print("Disco Converse");
-  //Funktion(isr) wird mit intterupt verbunden, von + auf -
-  //Hauptprogramm wird bei Fall unterbrochen, verbundene Funktion aussgeführt
-  //Interrupt wirde benutzt, um ständiges Abfragen(polling) zu vermeiden
 
 }
 //isr(kurz, um Hauptprogramm nicht aus Takt zu bringen):
@@ -193,7 +193,7 @@ void changeLightMode() {
   }
 }
 
-int doLightMode(int currentNote, int noteDuration, int aktuellerLichtmodus, int step) {
+int spieleLichtmodusMusik(int currentNote, int noteDuration, int aktuellerLichtmodus, int step) {
   Serial.print("Lichtmodus Nr.: ");
   Serial.println(lightMode);
   if (aktuellerLichtmodus == 0) {
@@ -265,7 +265,7 @@ void play() {
 
     aktuellerLichtmodus = lightMode;
 
-    lichtmodusDelay = doLightMode(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_START);
+    lichtmodusDelay = spieleLichtmodusMusik(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_START);
     lichtmodusDelay = max(0, min(100, lichtmodusDelay));
 
     // we only play the note for 90% of the duration, leaving 10% as a pause
@@ -273,11 +273,11 @@ void play() {
 
     delay(noteDuration * lichtmodusDelay / 100);
 
-    doLightMode(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_MID);
+    spieleLichtmodusMusik(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_MID);
 
     delay(noteDuration * (100 - lichtmodusDelay) / 100);
 
-    doLightMode(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_END);
+    spieleLichtmodusMusik(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_END);
 
     // stop the waveform generation before the next note.
     noTone(buzzer);
