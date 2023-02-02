@@ -127,9 +127,9 @@ int melody[] = {
 #define LIGHT_MODE_END    2
 
 //LichtPins Rechts
-#define RECHTS_ROT        9
-#define RECHTS_BLAU      10
-#define RECHTS_GRUEN     11
+#define RECHTS_ROT       10
+#define RECHTS_BLAU      11
+#define RECHTS_GRUEN      9
 
 //LichtPins Links
 #define LINKS_ROT         5
@@ -152,8 +152,6 @@ int divider = 0, noteDuration = 0;
 volatile byte lightMode = 0;
 volatile int lastLightModeChange = 0;
 
-
-
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
 LiquidCrystal_I2C Lcd(0x27, 16, 2);
@@ -171,6 +169,7 @@ void setup() {
   //Interrupt wirde benutzt, um ständiges Abfragen(polling) zu vermeiden
   attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), changeLightMode, FALLING);
   delay(500);
+  lastLightModeChange = 0;
   lightMode = 0;
 
   Lcd.init();
@@ -190,62 +189,55 @@ void changeLightMode() {
     if (lightMode >= ANZAHL_LICHT_EFFEKTE) {
       lightMode = 0;
     }
+    Serial.print("Lichtmodus geaendert zu ");
+    Serial.println(lightMode);
   }
 }
 
-int spieleLichtmodusMusik(int currentNote, int noteDuration, int aktuellerLichtmodus, int step) {
-  Serial.print("Lichtmodus Nr.: ");
-  Serial.println(lightMode);
-  if (aktuellerLichtmodus == 0) {
-    return lightMode0(currentNote, noteDuration, step);
+int spieleLichtmodusMusik(int currentNote, int noteDuration) {
+  if (lightMode == 0) {
+    return lightMode0(currentNote, noteDuration);
   } else if (lightMode == 1) {
-    return lightMode1(currentNote, noteDuration, step);
+    return lightMode1(currentNote, noteDuration);
   } else if (lightMode == 2) {
-    return lightMode2(currentNote, noteDuration, step);
+    return lightMode2(currentNote, noteDuration);
   }
 }
 
-int lightMode0(int currentNote, int noteDuration, int step) {
-  if (step == LIGHT_MODE_START && currentNote != REST) {
-    analogWrite(RECHTS_BLAU, 255);
-    analogWrite(RECHTS_ROT, 255);
-    analogWrite(LINKS_ROT, 255);
-    analogWrite(LINKS_BLAU, 255);
-  } else if (step == LIGHT_MODE_MID) {
-    analogWrite(RECHTS_BLAU, 255);
-    analogWrite(RECHTS_ROT, 0);
-    analogWrite(RECHTS_BLAU, 0);
-    analogWrite(LINKS_ROT, 0);
-    analogWrite(LINKS_BLAU, 0);
-  }
+int lightMode0(int currentNote, int noteDuration) {
+  analogWrite(RECHTS_ROT, 255);
+  analogWrite(RECHTS_BLAU, 255);
+  analogWrite(LINKS_ROT, 255);
+  analogWrite(LINKS_BLAU, 255);
 
   return 50;
 }
 
-int lightMode1(int currentNote, int noteDuration, int step) {
-  if (step == LIGHT_MODE_START && currentNote != REST) {
-    analogWrite(10, 255);
-    analogWrite(11, 255);
-    analogWrite(6, 255);
-  } else if (step == LIGHT_MODE_MID) {
-    analogWrite(10, 0);
-    analogWrite(11, 0);
-    analogWrite(6, 0);
-  }
+int lightMode1(int currentNote, int noteDuration) {
+  analogWrite(10, 255);
+  analogWrite(11, 255);
+  analogWrite(6, 255);
 
   return 10;
 }
 
-int lightMode2(int currentNote, int noteDuration, int step) {
+int lightMode2(int currentNote, int noteDuration) {
   return 50;
 }
 
+void alleLampenAus() {
+  analogWrite(RECHTS_ROT, 0);
+  analogWrite(RECHTS_GRUEN, 0);
+  analogWrite(RECHTS_BLAU, 0);
+  analogWrite(LINKS_ROT, 0);
+  analogWrite(LINKS_GRUEN, 0);
+  analogWrite(LINKS_BLAU, 0);
+}
 
 void play() {
 
   int currentNote;
   int lichtmodusDelay;
-  int aktuellerLichtmodus;
 
   // iterate over the notes of the melody.
   // Remember, the array is twice the number of notes (notes + durations)
@@ -263,21 +255,19 @@ void play() {
       //the duration in half for dotted notes
     }
 
-    aktuellerLichtmodus = lightMode;
-
-    lichtmodusDelay = spieleLichtmodusMusik(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_START);
-    lichtmodusDelay = max(0, min(100, lichtmodusDelay));
-
     // we only play the note for 90% of the duration, leaving 10% as a pause
     tone(buzzer, currentNote, noteDuration * 0.9);
 
-    delay(noteDuration * lichtmodusDelay / 100);
+    if (currentNote != REST) {
+      lichtmodusDelay = spieleLichtmodusMusik(currentNote, noteDuration);
+      lichtmodusDelay = max(0, min(100, lichtmodusDelay));
 
-    spieleLichtmodusMusik(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_MID);
-
-    delay(noteDuration * (100 - lichtmodusDelay) / 100);
-
-    spieleLichtmodusMusik(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_END);
+      delay(noteDuration * lichtmodusDelay / 100);
+      alleLampenAus();
+      delay(noteDuration * (100 - lichtmodusDelay) / 100);    
+    } else {
+      delay(noteDuration);
+    }
 
     // stop the waveform generation before the next note.
     noTone(buzzer);
