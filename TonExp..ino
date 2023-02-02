@@ -121,11 +121,6 @@ int melody[] = {
   REST, 8, NOTE_FS5, 8, REST, 8, NOTE_FS5, 8, NOTE_E5, 8, NOTE_E5, 8, NOTE_FS5, 8, NOTE_E5, 8,
 
 };
-//LichtModi
-#define LIGHT_MODE_START  0
-#define LIGHT_MODE_MID    1
-#define LIGHT_MODE_END    2
-
 //LichtPins Rechts
 #define RECHTS_ROT       10
 #define RECHTS_BLAU      11
@@ -137,7 +132,7 @@ int melody[] = {
 #define LINKS_GRUEN       6
 
 #define INTERRUPT_PIN      2
-#define ANZAHL_LICHT_EFFEKTE        3
+#define ANZAHL_LICHT_MODI        3
 
 
 // sizeof gives the number of bytes, each int value is composed of two bytes (16 bits)
@@ -145,12 +140,12 @@ int melody[] = {
 int notes = sizeof(melody) / sizeof(melody[0]) / 2;
 
 // this calculates the duration of a whole note in ms
-int wholenote = (60000 * 4) / tempo;
+int ganzeNote = (60000 * 4) / tempo;
 
-int divider = 0, noteDuration = 0;
+int divider = 0, Notenlaenge = 0;
 
 volatile byte lightMode = 0;
-volatile int lastLightModeChange = 0;
+volatile int letzteAenderung = 0;
 
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
@@ -166,10 +161,10 @@ void setup() {
   pinMode(INTERRUPT_PIN, INPUT_PULLUP);
   //Funktion(isr) wird mit intterupt verbunden, von + auf -
   //Hauptprogramm wird bei Fall unterbrochen, verbundene Funktion aussgeführt
-  //Interrupt wirde benutzt, um ständiges Abfragen(polling) zu vermeiden
+  //Interrupt wird benutzt, um staendiges Abfragen(polling) zu vermeiden
   attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), changeLightMode, FALLING);
   delay(500);
-  lastLightModeChange = 0;
+  letzteAenderung = 0;
   lightMode = 0;
 
   Lcd.init();
@@ -180,44 +175,75 @@ void setup() {
 }
 //isr(kurz, um Hauptprogramm nicht aus Takt zu bringen):
 void changeLightMode() {
-  const int currentMillis = millis();
-  const int timeSinceLastChange = currentMillis - lastLightModeChange;
+  const int millisSeitStart = millis();
+  const int ZeitSeitLetzterAenderung = millisSeitStart - letzteAenderung;
 
-  if (timeSinceLastChange > 500) {
-    lastLightModeChange = currentMillis;
+  if (ZeitSeitLetzterAenderung > 500) {
+    letzteAenderung = millisSeitStart;
     lightMode++;
-    if (lightMode >= ANZAHL_LICHT_EFFEKTE) {
+    if (lightMode >= ANZAHL_LICHT_MODI) {
       lightMode = 0;
     }
-    Serial.print("Lichtmodus geaendert zu ");
-    Serial.println(lightMode);
   }
 }
 
-void spieleLichtmodusMusik(int currentNote, int noteDuration) {
+void spieleLichtmodusMusik(int aktuelleNote, int Notenlaenge) {
   if (lightMode == 0) {
-    lightMode0(currentNote, noteDuration);
+    lightMode0(aktuelleNote, Notenlaenge);
   } else if (lightMode == 1) {
-    lightMode1(currentNote, noteDuration);
+    lightMode1(aktuelleNote, Notenlaenge);
   } else if (lightMode == 2) {
-    lightMode2(currentNote, noteDuration);
+    lightMode2(aktuelleNote, Notenlaenge);
   }
 }
 
-void lightMode0(int currentNote, int noteDuration) {
+void lightMode0(int aktuelleNote, int Notenlaenge) {
   analogWrite(RECHTS_ROT, 255);
-  analogWrite(RECHTS_BLAU, 255);
-  analogWrite(LINKS_ROT, 255);
-  analogWrite(LINKS_BLAU, 255);
+  analogWrite(LINKS_GRUEN, 255);
 }
 
-void lightMode1(int currentNote, int noteDuration) {
-  analogWrite(10, 255);
-  analogWrite(11, 255);
-  analogWrite(6, 255);
+int lightMode1LinksLeuchten = true;
+int lightMode1RGBCounter = 0;
+void lightMode1(int aktuelleNote, int Notenlaenge) {
+  if (lightMode1LinksLeuchten) {
+    if (lightMode1RGBCounter == 0) {
+      analogWrite(LINKS_ROT, 255);
+    } else if (lightMode1RGBCounter == 1) {
+      analogWrite(LINKS_GRUEN, 255);
+    } else if (lightMode1RGBCounter == 2) {
+      analogWrite(LINKS_BLAU, 255);
+    }
+    lightMode1RGBCounter++;
+    if (lightMode1RGBCounter == 3) {
+      lightMode1RGBCounter = 0;
+    }
+  } else {
+    if (lightMode1RGBCounter == 0) {
+      analogWrite(RECHTS_BLAU, 255);
+    } else if (lightMode1RGBCounter == 1) {
+      analogWrite(RECHTS_ROT, 255);
+    } else if (lightMode1RGBCounter == 2) {
+      analogWrite(RECHTS_GRUEN, 255);
+    }
+  }
+
+  lightMode1LinksLeuchten = !lightMode1LinksLeuchten;
 }
 
-void lightMode2(int currentNote, int noteDuration) {
+void lightMode2(int aktuelleNote, int Notenlaenge) {
+  if (aktuelleNote <= NOTE_B4) {
+    analogWrite(LINKS_ROT, 255);
+    analogWrite(RECHTS_ROT, 255);
+  } else if (aktuelleNote <= NOTE_E5) {
+    analogWrite(LINKS_GRUEN, 255);
+    analogWrite(RECHTS_ROT, 255);
+  } else if (aktuelleNote < NOTE_B5) {
+    analogWrite(LINKS_BLAU, 255);
+    analogWrite(RECHTS_ROT, 255);
+  } else {
+    analogWrite(LINKS_GRUEN, 255);
+    analogWrite(RECHTS_GRUEN, 255);
+  }
 }
 
 void alleLampenAus() {
@@ -231,35 +257,38 @@ void alleLampenAus() {
 
 void play() {
 
-  int currentNote;
+  int aktuelleNote;
 
   // iterate over the notes of the melody.
   // Remember, the array is twice the number of notes (notes + durations)
   for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
-    currentNote = melody[thisNote];
+    aktuelleNote = melody[thisNote];
     // calculates the duration of each note
     divider = melody[thisNote + 1];
     if (divider > 0) {
       // regular note, just proceed
-      noteDuration = (wholenote) / divider;
+      Notenlaenge = (ganzeNote) / divider;
     } else if (divider < 0) {
       // dotted notes are represented with negative durations!!
-      noteDuration = (wholenote) / abs(divider);
-      noteDuration *= 1.5; // incre
+      Notenlaenge = (ganzeNote) / abs(divider);
+      Notenlaenge *= 1.5; // incre
       //the duration in half for dotted notes
     }
 
-    // we only play the note for 90% of the duration, leaving 10% as a pause
-    tone(buzzer, currentNote, noteDuration * 0.9);
+    Serial.print("Note: ");
+    Serial.println(aktuelleNote);
 
-    if (currentNote != REST) {
-      spieleLichtmodusMusik(currentNote, noteDuration);
+    // we only play the note for 90% of the duration, leaving 10% as a pause
+    tone(buzzer, aktuelleNote, Notenlaenge * 0.9);
+
+    if (aktuelleNote != REST) {
+      spieleLichtmodusMusik(aktuelleNote, Notenlaenge);
     }
 
-    delay(noteDuration / 2);
+    delay(Notenlaenge / 2);
     alleLampenAus();
-    delay(noteDuration / 2);
-    
+    delay(Notenlaenge / 2);
+
     // stop the waveform generation before the next note.
     noTone(buzzer);
   }
