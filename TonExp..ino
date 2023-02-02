@@ -194,35 +194,30 @@ void changeLightMode() {
   }
 }
 
-int spieleLichtmodusMusik(int currentNote, int noteDuration) {
+void spieleLichtmodusMusik(int currentNote, int noteDuration) {
   if (lightMode == 0) {
-    return lightMode0(currentNote, noteDuration);
+    lightMode0(currentNote, noteDuration);
   } else if (lightMode == 1) {
-    return lightMode1(currentNote, noteDuration);
+    lightMode1(currentNote, noteDuration);
   } else if (lightMode == 2) {
-    return lightMode2(currentNote, noteDuration);
+    lightMode2(currentNote, noteDuration);
   }
 }
 
-int lightMode0(int currentNote, int noteDuration) {
+void lightMode0(int currentNote, int noteDuration) {
   analogWrite(RECHTS_ROT, 255);
   analogWrite(RECHTS_BLAU, 255);
   analogWrite(LINKS_ROT, 255);
   analogWrite(LINKS_BLAU, 255);
-
-  return 50;
 }
 
-int lightMode1(int currentNote, int noteDuration) {
+void lightMode1(int currentNote, int noteDuration) {
   analogWrite(10, 255);
   analogWrite(11, 255);
   analogWrite(6, 255);
-
-  return 10;
 }
 
-int lightMode2(int currentNote, int noteDuration) {
-  return 50;
+void lightMode2(int currentNote, int noteDuration) {
 }
 
 void alleLampenAus() {
@@ -237,7 +232,6 @@ void alleLampenAus() {
 void play() {
 
   int currentNote;
-  int lichtmodusDelay;
 
   // iterate over the notes of the melody.
   // Remember, the array is twice the number of notes (notes + durations)
@@ -259,16 +253,13 @@ void play() {
     tone(buzzer, currentNote, noteDuration * 0.9);
 
     if (currentNote != REST) {
-      lichtmodusDelay = spieleLichtmodusMusik(currentNote, noteDuration);
-      lichtmodusDelay = max(0, min(100, lichtmodusDelay));
-
-      delay(noteDuration * lichtmodusDelay / 100);
-      alleLampenAus();
-      delay(noteDuration * (100 - lichtmodusDelay) / 100);    
-    } else {
-      delay(noteDuration);
+      spieleLichtmodusMusik(currentNote, noteDuration);
     }
 
+    delay(noteDuration / 2);
+    alleLampenAus();
+    delay(noteDuration / 2);
+    
     // stop the waveform generation before the next note.
     noTone(buzzer);
   }
