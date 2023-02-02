@@ -126,11 +126,12 @@ int melody[] = {
 #define LIGHT_MODE_MID    1
 #define LIGHT_MODE_END    2
 
-//LichtPins
+//LichtPins Rechts
 #define RECHTS_ROT        9
 #define RECHTS_BLAU      10
 #define RECHTS_GRUEN     11
 
+//LichtPins Links
 #define LINKS_ROT         5
 #define LINKS_BLAU        3
 #define LINKS_GRUEN       6
@@ -157,22 +158,25 @@ volatile int lastLightModeChange = 0;
 #include <Wire.h>
 LiquidCrystal_I2C Lcd(0x27, 16, 2);
 void setup() {
+  Serial.begin(9600);
   pinMode(RECHTS_ROT, OUTPUT);
   pinMode(RECHTS_BLAU, OUTPUT);
   pinMode(RECHTS_GRUEN, OUTPUT);
   pinMode(LINKS_ROT, OUTPUT);
   pinMode(LINKS_BLAU, OUTPUT);
   pinMode(LINKS_GRUEN, OUTPUT);
+  pinMode(INTERRUPT_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), changeLightMode, FALLING);
+  delay(500);
+  lightMode = 0;
+
   Lcd.init();
   Lcd.backlight();
   Lcd.setCursor(3, 0);
   Lcd.print("Disco Converse");
-  Serial.begin(9600);
-  pinMode(INTERRUPT_PIN, INPUT_PULLUP);
   //Funktion(isr) wird mit intterupt verbunden, von + auf -
   //Hauptprogramm wird bei Fall unterbrochen, verbundene Funktion aussgeführt
   //Interrupt wirde benutzt, um ständiges Abfragen(polling) zu vermeiden
-  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), changeLightMode, FALLING);
 
 }
 //isr(kurz, um Hauptprogramm nicht aus Takt zu bringen):
@@ -183,16 +187,16 @@ void changeLightMode() {
   if (timeSinceLastChange > 500) {
     lastLightModeChange = currentMillis;
     lightMode++;
-    if (lightMode >= ANZAHL_LICHT_EFFEKTE){
+    if (lightMode >= ANZAHL_LICHT_EFFEKTE) {
       lightMode = 0;
     }
   }
 }
 
-int doLightMode(int currentNote, int noteDuration, int step) {
-  Serial.print("Do light mode: ");
+int doLightMode(int currentNote, int noteDuration, int aktuellerLichtmodus, int step) {
+  Serial.print("Lichtmodus Nr.: ");
   Serial.println(lightMode);
-  if (lightMode == 0) {
+  if (aktuellerLichtmodus == 0) {
     return lightMode0(currentNote, noteDuration, step);
   } else if (lightMode == 1) {
     return lightMode1(currentNote, noteDuration, step);
@@ -204,10 +208,15 @@ int doLightMode(int currentNote, int noteDuration, int step) {
 int lightMode0(int currentNote, int noteDuration, int step) {
   if (step == LIGHT_MODE_START && currentNote != REST) {
     analogWrite(RECHTS_BLAU, 255);
+    analogWrite(RECHTS_ROT, 255);
     analogWrite(LINKS_ROT, 255);
+    analogWrite(LINKS_BLAU, 255);
   } else if (step == LIGHT_MODE_MID) {
+    analogWrite(RECHTS_BLAU, 255);
+    analogWrite(RECHTS_ROT, 0);
     analogWrite(RECHTS_BLAU, 0);
     analogWrite(LINKS_ROT, 0);
+    analogWrite(LINKS_BLAU, 0);
   }
 
   return 50;
@@ -224,7 +233,7 @@ int lightMode1(int currentNote, int noteDuration, int step) {
     analogWrite(6, 0);
   }
 
-  return 50;
+  return 10;
 }
 
 int lightMode2(int currentNote, int noteDuration, int step) {
@@ -235,7 +244,8 @@ int lightMode2(int currentNote, int noteDuration, int step) {
 void play() {
 
   int currentNote;
-  int lightModeDelay;
+  int lichtmodusDelay;
+  int aktuellerLichtmodus;
 
   // iterate over the notes of the melody.
   // Remember, the array is twice the number of notes (notes + durations)
@@ -253,19 +263,21 @@ void play() {
       //the duration in half for dotted notes
     }
 
-    lightModeDelay = doLightMode(currentNote, noteDuration, LIGHT_MODE_START);
-    lightModeDelay = max(0, min(100, lightModeDelay));
+    aktuellerLichtmodus = lightMode;
+
+    lichtmodusDelay = doLightMode(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_START);
+    lichtmodusDelay = max(0, min(100, lichtmodusDelay));
 
     // we only play the note for 90% of the duration, leaving 10% as a pause
     tone(buzzer, currentNote, noteDuration * 0.9);
 
-    delay(noteDuration * lightModeDelay / 100);
+    delay(noteDuration * lichtmodusDelay / 100);
 
-    doLightMode(currentNote, noteDuration, LIGHT_MODE_MID);
+    doLightMode(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_MID);
 
-    delay(noteDuration * (100 - lightModeDelay) / 100);
+    delay(noteDuration * (100 - lichtmodusDelay) / 100);
 
-    doLightMode(currentNote, noteDuration, LIGHT_MODE_END);
+    doLightMode(currentNote, noteDuration, aktuellerLichtmodus, LIGHT_MODE_END);
 
     // stop the waveform generation before the next note.
     noTone(buzzer);
