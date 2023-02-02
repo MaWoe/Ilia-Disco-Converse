@@ -187,9 +187,6 @@ void play() {
       //the duration in half for dotted notes
     }
 
-    Serial.print("Note: ");
-    Serial.println(aktuelleNote);
-
     // we only play the note for 90% of the duration, leaving 10% as a pause
     tone(buzzer, aktuelleNote, Notenlaenge * 0.9);
 
